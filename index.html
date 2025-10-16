@@ -637,6 +637,81 @@
             }
         }
 
+        /* NEW: 295-480px range fix */
+        @media (max-width: 520px) and (min-width: 295px) {
+            .wheel-container, .wheel {
+                width: 280px;
+                height: 280px;
+            }
+            
+            .spin-button {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .spin-text {
+                font-size: 10px;
+            }
+            
+            .needle {
+                transform: translate(-50%, -50%) translateY(-38px);
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-bottom: 18px solid #ffffff;
+            }
+            
+            .needle.wobbling {
+                animation: needleWobbleSmall 0.15s ease-in-out infinite;
+            }
+
+            @keyframes needleWobbleSmall {
+                0% { transform: translate(-50%, -50%) translateY(-38px) rotate(-2deg); }
+                25% { transform: translate(-50%, -50%) translateY(-38px) rotate(3deg); }
+                50% { transform: translate(-50%, -50%) translateY(-38px) rotate(-1deg); }
+                75% { transform: translate(-50%, -50%) translateY(-38px) rotate(2deg); }
+                100% { transform: translate(-50%, -50%) translateY(-38px) rotate(-2deg); }
+            }
+
+            /* Small screen needle tilt animations */
+            .needle.tilting-right {
+                animation: needleTiltRightSmall 0.8s ease-out forwards;
+            }
+            
+            .needle.tilting-left {
+                animation: needleTiltLeftSmall 0.8s ease-out forwards;
+            }
+            
+            .needle.bouncing-right {
+                animation: needleBounceRightSmall 0.2s ease-in-out;
+            }
+            
+            .needle.bouncing-left {
+                animation: needleBounceLeftSmall 0.2s ease-in-out;
+            }
+
+            @keyframes needleTiltRightSmall {
+                0% { transform: translate(-50%, -50%) translateY(-38px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-38px) rotate(8deg); }
+            }
+            
+            @keyframes needleTiltLeftSmall {
+                0% { transform: translate(-50%, -50%) translateY(-38px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-38px) rotate(-8deg); }
+            }
+            
+            @keyframes needleBounceRightSmall {
+                0% { transform: translate(-50%, -50%) translateY(-38px) rotate(8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-38px) rotate(-3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-38px) rotate(8deg); }
+            }
+            
+            @keyframes needleBounceLeftSmall {
+                0% { transform: translate(-50%, -50%) translateY(-38px) rotate(-8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-38px) rotate(3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-38px) rotate(-8deg); }
+            }
+        }
+
         @media (max-width: 480px) {
             .wheel-container, .wheel {
                 width: 320px;
@@ -1043,8 +1118,12 @@
             const screenWidth = window.innerWidth;
             const screenHeight = window.innerHeight;
             
+            // NEW: Small screens (295-520px)
+            if (screenWidth <= 520 && screenWidth >= 295) {
+                return '-38px';
+            }
             // Mobile devices (<=480px width)
-            if (screenWidth <= 480) {
+            else if (screenWidth <= 480) {
                 return '-42px';
             }
             // Tablet devices (<=768px width)

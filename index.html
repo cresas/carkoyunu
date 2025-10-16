@@ -1,11 +1,12 @@
 <!DOCTYPE html>
+
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Çark Oyunu</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&subset=latin,latin-ext,turkish&display=swap" rel="stylesheet">
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Çark Oyunu</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&amp;subset=latin,latin-ext,turkish&amp;display=swap" rel="stylesheet"/>
+<style>
         * {
             margin: 0;
             padding: 0;
@@ -529,30 +530,6 @@
             }
         }
 
-        /* RESPONSIVE FIX: 295-520px width range */
-        @media (max-width: 520px) and (min-width: 295px) {
-            .wheel-container, .wheel {
-                width: 280px;
-                height: 280px;
-            }
-            
-            .spin-button {
-                width: 60px;
-                height: 60px;
-            }
-            
-            .spin-text {
-                font-size: 10px;
-            }
-            
-            .needle {
-                transform: translate(-50%, -50%) translateY(-38px);
-                border-left: 6px solid transparent;
-                border-right: 6px solid transparent;
-                border-bottom: 18px solid #ffffff;
-            }
-        }
-
         @media (max-width: 768px) {
             .wheel-container, .wheel {
                 width: 400px;
@@ -815,40 +792,60 @@
                 margin-top: 8px;
             }
         }
-    </style>
+    
+/* Mobil ve küçük ekranlarda çark ortalaması düzeltildi */
+@media (max-width: 768px) {
+  .wheel-container, .container, canvas {
+    width: 90vw !important;
+    height: 90vw !important;
+    max-width: none !important;
+    max-height: none !important;
+  }
+  #spinButton, .spin-button {
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+}
+</style>
 </head>
 <body>
-    <div class="main-container">
-        <div class="wheel-section">
-            <!-- Winner text above the wheel -->
-            <div class="winner-announcement" id="winnerText"></div>
-            
-            <div class="wheel-container">
-                <!-- NEEDLE at the top -->
-                <div class="needle"></div>
-                
-                <!-- WHEEL (canvas) -->
-                <canvas class="wheel" width="750" height="750"></canvas>
-                
-                <!-- CENTER BUTTON -->
-                <div class="spin-button" onclick="spinWheel()">
-                    <div class="spin-text">ÇARKI<br>ÇEVİR</div>
-                </div>
-            </div>
+<div class="main-container">
+<div class="wheel-section">
+<!-- Winner text above the wheel -->
+<div class="winner-announcement" id="winnerText"></div>
+<div class="wheel-container">
+<!-- NEEDLE at the top -->
+<div class="needle"></div>
+<!-- WHEEL (canvas) -->
+<canvas class="wheel" height="750" width="750"></canvas>
+<!-- CENTER BUTTON -->
+<div class="spin-button" onclick="spinWheel()">
+<div class="spin-text">ÇARKI<br/>ÇEVİR</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quiz Modal -->
+<div class="quiz-modal" id="quizModal">
+<div class="quiz-content">
+<button class="quiz-close" onclick="closeQuiz()">×</button>
+<h2 class="quiz-title" id="quizTitle"></h2>
+<div class="quiz-options" id="quizOptions"></div>
+</div>
+</div>
 
-        </div>
-    </div>
-
-    <!-- Quiz Modal -->
-    <div class="quiz-modal" id="quizModal">
-        <div class="quiz-content">
-            <button class="quiz-close" onclick="closeQuiz()">&times;</button>
-            <h2 class="quiz-title" id="quizTitle"></h2>
-            <div class="quiz-options" id="quizOptions"></div>
-        </div>
-    </div>
-
-    <script>
+<script>
+window.addEventListener('resize', () => {
+  const btn = document.querySelector('#spinButton, .spin-button');
+  if (btn) {
+    btn.style.left = '50%';
+    btn.style.top = '50%';
+    btn.style.transform = 'translate(-50%, -50%)';
+  }
+});
+</script>
+<script>
         // Updated word pairs based on user request
         const wordPairs = {
             'doğru': 'yanlış',
@@ -1067,12 +1064,8 @@
             const screenWidth = window.innerWidth;
             const screenHeight = window.innerHeight;
             
-            // Small mobile devices (295-520px width)
-            if (screenWidth >= 295 && screenWidth <= 520) {
-                return '-38px';
-            }
             // Mobile devices (<=480px width)
-            else if (screenWidth <= 480) {
+            if (screenWidth <= 480) {
                 return '-42px';
             }
             // Tablet devices (<=768px width)
@@ -1103,10 +1096,6 @@
                 return 16;
             } else if (screenHeight >= 601 && screenHeight <= 800) {
                 return 20; // For 1024x768 and similar
-            }
-            // Width constraints - Small mobile first
-            else if (screenWidth >= 295 && screenWidth <= 520) {
-                return 14;
             }
             // Width constraints
             else if (screenWidth <= 480) {

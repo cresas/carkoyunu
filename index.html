@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çark Oyunu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&subset=latin,latin-ext,turkish&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans', 'Segoe UI', 'Trebuchet MS', 'Arial Unicode MS', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            text-rendering: optimizeLegibility;
+            -webkit-font-feature-settings: "kern" 1;
+            font-feature-settings: "kern" 1;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .main-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .wheel-section {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Winner text - positioned above the entire wheel section */
+        .winner-announcement {
+            position: absolute;
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            background: rgba(255,68,68,0.9);
+            padding: 12px 20px;
+            border-radius: 15px;
+            white-space: nowrap;
+            border: 2px solid #fff;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-family: 'Noto Sans', 'Segoe UI', 'Trebuchet MS', 'Arial Unicode MS', Arial, sans-serif;
+            text-rendering: optimizeLegibility;
+            -webkit-font-feature-settings: "kern" 1;
+            font-feature-settings: "kern" 1;
+            unicode-bidi: normal;
+            text-transform: none;
+            letter-spacing: 1px;
+        }
+
+        .winner-announcement.show {
+            opacity: 1;
+        }
+
+        /* Türkçe karakter desteği için özel kurallar */
+        .winner-announcement,
+        .quiz-content h2,
+        .quiz-content p,
+        body * {
+            font-variant-ligatures: normal;
+            font-variant-caps: normal;
+            text-rendering: optimizeLegibility;
+            -webkit-locale: "tr-TR";
+        }
+
+        /* Büyük İ harfi için özel stil */
+        .turkish-char {
+            font-feature-settings: "locl" 1, "ccmp" 1, "liga" 1;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 750px;
+            height: 750px;
+        }
+
+        .wheel {
+            width: 750px;
+            height: 750px;
+            border-radius: 50%;
+            border: 8px solid #ffffff;
+            box-shadow: 0 0 30px rgba(0,0,0,0.3);
+            background: #fff;
+            /* High-quality rendering for sharp canvas */
+            image-rendering: auto;
+            image-rendering: smooth;
+            /* NO CSS animation - will be controlled by JS */
+        }
+
+        @keyframes idleRotation {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Needle tilt animation based on spin direction */
+        @keyframes needleTiltRight {
+            0% { transform: translate(-50%, -50%) translateY(-60px) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) translateY(-60px) rotate(8deg); }
+        }
+        
+        @keyframes needleTiltLeft {
+            0% { transform: translate(-50%, -50%) translateY(-60px) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) translateY(-60px) rotate(-8deg); }
+        }
+        
+        /* Needle bounce animation for segment crossings */
+        @keyframes needleBounceRight {
+            0% { transform: translate(-50%, -50%) translateY(-60px) rotate(8deg); }
+            50% { transform: translate(-50%, -50%) translateY(-60px) rotate(-3deg); }
+            100% { transform: translate(-50%, -50%) translateY(-60px) rotate(8deg); }
+        }
+        
+        @keyframes needleBounceLeft {
+            0% { transform: translate(-50%, -50%) translateY(-60px) rotate(-8deg); }
+            50% { transform: translate(-50%, -50%) translateY(-60px) rotate(3deg); }
+            100% { transform: translate(-50%, -50%) translateY(-60px) rotate(-8deg); }
+        }
+
+        /* Needle states during spin */
+        .needle.tilting-right {
+            animation: needleTiltRight 0.8s ease-out forwards;
+        }
+        
+        .needle.tilting-left {
+            animation: needleTiltLeft 0.8s ease-out forwards;
+        }
+        
+        .needle.bouncing-right {
+            animation: needleBounceRight 0.2s ease-in-out;
+        }
+        
+        .needle.bouncing-left {
+            animation: needleBounceLeft 0.2s ease-in-out;
+        }
+
+
+
+        /* Center spin button - NOW ON TOP */
+        .spin-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            background: #ffffff;
+            border-radius: 50%;
+            border: 6px solid #333333;
+            z-index: 70;
+            box-shadow: 0 0 20px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            /* NO opacity changes during spin */
+        }
+
+        /* NEEDLE - NOW BEHIND SPIN BUTTON - WHITE & BIGGER */
+        .needle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translateY(-60px) rotate(3deg);
+            width: 0;
+            height: 0;
+            border-left: 16px solid transparent;
+            border-right: 16px solid transparent;
+            border-bottom: 45px solid #ffffff;
+            z-index: 50;
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6));
+        }
+
+        .spin-button:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+            box-shadow: 0 0 25px rgba(0,0,0,0.5);
+        }
+
+        .spin-button:active {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+
+        .spin-text {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            line-height: 1.2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .spin-button:disabled {
+            cursor: not-allowed;
+            transform: translate(-50%, -50%);
+        }
+
+
+        /* Quiz Modal */
+        .quiz-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .quiz-content {
+            background: linear-gradient(145deg, #ffffff, #f8f9fa);
+            padding: 50px;
+            border-radius: 25px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+            transform: scale(0.7);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border: 3px solid #e9ecef;
+            position: relative;
+        }
+
+        .quiz-modal.show .quiz-content {
+            transform: scale(1);
+        }
+
+        .quiz-title {
+            font-size: 28px;
+            margin-bottom: 40px;
+            color: #2c3e50;
+            font-weight: bold;
+            line-height: 1.3;
+        }
+
+        .quiz-options {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 40px;
+            justify-content: center;
+        }
+
+        .quiz-option {
+            flex: 1;
+            padding: 25px 20px;
+            border: 3px solid #dee2e6;
+            border-radius: 15px;
+            background: linear-gradient(145deg, #f8f9fa, #ffffff);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 20px;
+            font-weight: 600;
+            color: #495057;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .quiz-option:hover {
+            border-color: #007bff;
+            background: linear-gradient(145deg, #e3f2fd, #f8f9fa);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,123,255,0.3);
+        }
+
+        .quiz-option.correct {
+            background: linear-gradient(145deg, #d4edda, #c3e6cb);
+            border-color: #28a745;
+            color: #155724;
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(40,167,69,0.4);
+        }
+
+        .quiz-option.wrong {
+            background: linear-gradient(145deg, #f8d7da, #f5c6cb);
+            border-color: #dc3545;
+            color: #721c24;
+            transform: scale(0.95);
+            box-shadow: 0 5px 15px rgba(220,53,69,0.3);
+        }
+
+        /* Quiz Close Button */
+        .quiz-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            background: #dc3545;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-family: 'Noto Sans', 'Segoe UI', 'Trebuchet MS', 'Arial Unicode MS', Arial, sans-serif;
+        }
+
+        .quiz-close:hover {
+            background: #c82333;
+            transform: scale(1.1);
+        }
+
+        /* Spin Again Button */
+        .spin-again-btn {
+            background: linear-gradient(145deg, #28a745, #20c997);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 15px;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            font-family: 'Noto Sans', 'Segoe UI', 'Trebuchet MS', 'Arial Unicode MS', Arial, sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .spin-again-btn:hover {
+            background: linear-gradient(145deg, #20c997, #28a745);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            width: 12px;
+            height: 12px;
+            pointer-events: none;
+            z-index: 3500;
+            border-radius: 50%;
+            font-family: 'Noto Sans', 'Segoe UI', 'Trebuchet MS', 'Arial Unicode MS', Arial, sans-serif;
+        }
+
+        /* Height: 600-800px range (like 1024x768) */
+        @media (min-height: 601px) and (max-height: 800px) {
+            .wheel-container, .wheel {
+                width: 550px;
+                height: 550px;
+            }
+            
+            .spin-button {
+                width: 110px;
+                height: 110px;
+            }
+            
+            .spin-text {
+                font-size: 16px;
+            }
+            
+            .needle {
+                transform: translate(-50%, -50%) translateY(-53px);
+                border-left: 10px solid transparent;
+                border-right: 10px solid transparent;
+                border-bottom: 32px solid #ffffff;
+            }
+            
+            .needle.wobbling {
+                animation: needleWobble768 0.15s ease-in-out infinite;
+            }
+
+            @keyframes needleWobble768 {
+                0% { transform: translate(-50%, -50%) translateY(-53px) rotate(-2deg); }
+                25% { transform: translate(-50%, -50%) translateY(-53px) rotate(3deg); }
+                50% { transform: translate(-50%, -50%) translateY(-53px) rotate(-1deg); }
+                75% { transform: translate(-50%, -50%) translateY(-53px) rotate(2deg); }
+                100% { transform: translate(-50%, -50%) translateY(-53px) rotate(-2deg); }
+            }
+
+            /* Height 601-800px needle tilt animations */
+            .needle.tilting-right {
+                animation: needleTiltRight768 0.8s ease-out forwards;
+            }
+            
+            .needle.tilting-left {
+                animation: needleTiltLeft768 0.8s ease-out forwards;
+            }
+            
+            .needle.bouncing-right {
+                animation: needleBounceRight768 0.2s ease-in-out;
+            }
+            
+            .needle.bouncing-left {
+                animation: needleBounceLeft768 0.2s ease-in-out;
+            }
+
+            @keyframes needleTiltRight768 {
+                0% { transform: translate(-50%, -50%) translateY(-53px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-53px) rotate(8deg); }
+            }
+            
+            @keyframes needleTiltLeft768 {
+                0% { transform: translate(-50%, -50%) translateY(-53px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-53px) rotate(-8deg); }
+            }
+            
+            @keyframes needleBounceRight768 {
+                0% { transform: translate(-50%, -50%) translateY(-53px) rotate(8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-53px) rotate(-3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-53px) rotate(8deg); }
+            }
+            
+            @keyframes needleBounceLeft768 {
+                0% { transform: translate(-50%, -50%) translateY(-53px) rotate(-8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-53px) rotate(3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-53px) rotate(-8deg); }
+            }
+            
+            .winner-announcement {
+                font-size: 24px;
+                padding: 10px 18px;
+                top: -75px;
+            }
+        }
+
+        @media (max-height: 600px) {
+            .wheel-container, .wheel {
+                width: 350px;
+                height: 350px;
+            }
+            
+            .spin-button {
+                width: 75px;
+                height: 75px;
+            }
+            
+            .spin-text {
+                font-size: 11px;
+            }
+            
+            .needle {
+                transform: translate(-50%, -50%) translateY(-42px);
+                border-left: 7px solid transparent;
+                border-right: 7px solid transparent;
+                border-bottom: 23px solid #ffffff;
+            }
+            
+            .needle.wobbling {
+                animation: needleWobble600 0.15s ease-in-out infinite;
+            }
+
+            @keyframes needleWobble600 {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(-2deg); }
+                25% { transform: translate(-50%, -50%) translateY(-42px) rotate(3deg); }
+                50% { transform: translate(-50%, -50%) translateY(-42px) rotate(-1deg); }
+                75% { transform: translate(-50%, -50%) translateY(-42px) rotate(2deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(-2deg); }
+            }
+
+            /* Height 600px needle tilt animations */
+            .needle.tilting-right {
+                animation: needleTiltRight600 0.8s ease-out forwards;
+            }
+            
+            .needle.tilting-left {
+                animation: needleTiltLeft600 0.8s ease-out forwards;
+            }
+            
+            .needle.bouncing-right {
+                animation: needleBounceRight600 0.2s ease-in-out;
+            }
+            
+            .needle.bouncing-left {
+                animation: needleBounceLeft600 0.2s ease-in-out;
+            }
+
+            @keyframes needleTiltRight600 {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(8deg); }
+            }
+            
+            @keyframes needleTiltLeft600 {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(-8deg); }
+            }
+            
+            @keyframes needleBounceRight600 {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-42px) rotate(-3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(8deg); }
+            }
+            
+            @keyframes needleBounceLeft600 {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(-8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-42px) rotate(3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(-8deg); }
+            }
+            
+            .winner-announcement {
+                font-size: 22px;
+                padding: 10px 18px;
+                top: -70px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .wheel-container, .wheel {
+                width: 400px;
+                height: 400px;
+            }
+            
+            .spin-button {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .spin-text {
+                font-size: 12px;
+            }
+            
+            .needle {
+                transform: translate(-50%, -50%) translateY(-45px);
+                border-left: 8px solid transparent;
+                border-right: 8px solid transparent;
+                border-bottom: 25px solid #ffffff;
+            }
+            
+            .needle.wobbling {
+                animation: needleWobbleTablet 0.15s ease-in-out infinite;
+            }
+
+            @keyframes needleWobbleTablet {
+                0% { transform: translate(-50%, -50%) translateY(-45px) rotate(-2deg); }
+                25% { transform: translate(-50%, -50%) translateY(-45px) rotate(3deg); }
+                50% { transform: translate(-50%, -50%) translateY(-45px) rotate(-1deg); }
+                75% { transform: translate(-50%, -50%) translateY(-45px) rotate(2deg); }
+                100% { transform: translate(-50%, -50%) translateY(-45px) rotate(-2deg); }
+            }
+
+            /* Tablet-specific needle tilt animations */
+            .needle.tilting-right {
+                animation: needleTiltRightTablet 0.8s ease-out forwards;
+            }
+            
+            .needle.tilting-left {
+                animation: needleTiltLeftTablet 0.8s ease-out forwards;
+            }
+            
+            .needle.bouncing-right {
+                animation: needleBounceRightTablet 0.2s ease-in-out;
+            }
+            
+            .needle.bouncing-left {
+                animation: needleBounceLeftTablet 0.2s ease-in-out;
+            }
+
+            @keyframes needleTiltRightTablet {
+                0% { transform: translate(-50%, -50%) translateY(-45px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-45px) rotate(8deg); }
+            }
+            
+            @keyframes needleTiltLeftTablet {
+                0% { transform: translate(-50%, -50%) translateY(-45px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-45px) rotate(-8deg); }
+            }
+            
+            @keyframes needleBounceRightTablet {
+                0% { transform: translate(-50%, -50%) translateY(-45px) rotate(8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-45px) rotate(-3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-45px) rotate(8deg); }
+            }
+            
+            @keyframes needleBounceLeftTablet {
+                0% { transform: translate(-50%, -50%) translateY(-45px) rotate(-8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-45px) rotate(3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-45px) rotate(-8deg); }
+            }
+            
+            .quiz-content {
+                padding: 25px;
+                max-width: 85%;
+            }
+            
+            .quiz-close {
+                width: 32px;
+                height: 32px;
+                font-size: 20px;
+                top: 10px;
+                right: 10px;
+            }
+            
+            .quiz-options {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .quiz-title {
+                font-size: 22px;
+                margin-bottom: 25px;
+            }
+            
+            .quiz-option {
+                font-size: 17px;
+                padding: 18px 15px;
+            }
+            
+            .spin-again-btn {
+                padding: 12px 24px;
+                font-size: 16px;
+                margin-top: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .wheel-container, .wheel {
+                width: 320px;
+                height: 320px;
+            }
+            
+            .spin-button {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .spin-text {
+                font-size: 11px;
+            }
+            
+            .needle {
+                transform: translate(-50%, -50%) translateY(-42px);
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-bottom: 20px solid #ffffff;
+            }
+            
+            .needle.wobbling {
+                animation: needleWobbleMobile 0.15s ease-in-out infinite;
+            }
+
+            @keyframes needleWobbleMobile {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(-2deg); }
+                25% { transform: translate(-50%, -50%) translateY(-42px) rotate(3deg); }
+                50% { transform: translate(-50%, -50%) translateY(-42px) rotate(-1deg); }
+                75% { transform: translate(-50%, -50%) translateY(-42px) rotate(2deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(-2deg); }
+            }
+
+            /* Mobile-specific needle tilt animations */
+            .needle.tilting-right {
+                animation: needleTiltRightMobile 0.8s ease-out forwards;
+            }
+            
+            .needle.tilting-left {
+                animation: needleTiltLeftMobile 0.8s ease-out forwards;
+            }
+            
+            .needle.bouncing-right {
+                animation: needleBounceRightMobile 0.2s ease-in-out;
+            }
+            
+            .needle.bouncing-left {
+                animation: needleBounceLeftMobile 0.2s ease-in-out;
+            }
+
+            @keyframes needleTiltRightMobile {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(8deg); }
+            }
+            
+            @keyframes needleTiltLeftMobile {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(0deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(-8deg); }
+            }
+            
+            @keyframes needleBounceRightMobile {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-42px) rotate(-3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(8deg); }
+            }
+            
+            @keyframes needleBounceLeftMobile {
+                0% { transform: translate(-50%, -50%) translateY(-42px) rotate(-8deg); }
+                50% { transform: translate(-50%, -50%) translateY(-42px) rotate(3deg); }
+                100% { transform: translate(-50%, -50%) translateY(-42px) rotate(-8deg); }
+            }
+            
+            .winner-announcement {
+                font-size: 18px;
+                padding: 6px 12px;
+                top: -50px;
+            }
+            
+            .quiz-content {
+                padding: 15px;
+                max-width: 92%;
+                margin: 10px;
+            }
+            
+            .quiz-close {
+                width: 28px;
+                height: 28px;
+                font-size: 18px;
+                top: 8px;
+                right: 8px;
+            }
+            
+            .quiz-title {
+                font-size: 18px;
+                margin-bottom: 20px;
+                line-height: 1.3;
+                padding-right: 35px;
+            }
+            
+            .quiz-options {
+                gap: 12px;
+                margin-bottom: 15px;
+            }
+            
+            .quiz-option {
+                font-size: 15px;
+                padding: 15px 10px;
+            }
+            
+            .spin-again-btn {
+                padding: 10px 20px;
+                font-size: 14px;
+                margin-top: 10px;
+            }
+        }
+
+        @media (max-width: 375px) {
+            .quiz-content {
+                padding: 12px;
+                max-width: 95%;
+                margin: 5px;
+            }
+            
+            .quiz-close {
+                width: 26px;
+                height: 26px;
+                font-size: 16px;
+                top: 6px;
+                right: 6px;
+            }
+            
+            .quiz-title {
+                font-size: 16px;
+                margin-bottom: 15px;
+                padding-right: 32px;
+            }
+            
+            .quiz-options {
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+            
+            .quiz-option {
+                font-size: 14px;
+                padding: 12px 8px;
+            }
+            
+            .spin-again-btn {
+                padding: 8px 16px;
+                font-size: 13px;
+                margin-top: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="wheel-section">
+            <!-- Winner text above the wheel -->
+            <div class="winner-announcement" id="winnerText"></div>
+            
+            <div class="wheel-container">
+                <!-- NEEDLE at the top -->
+                <div class="needle"></div>
+                
+                <!-- WHEEL (canvas) -->
+                <canvas class="wheel" width="750" height="750"></canvas>
+                
+                <!-- CENTER BUTTON -->
+                <div class="spin-button" onclick="spinWheel()">
+                    <div class="spin-text">ÇARKI<br>ÇEVİR</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div class="quiz-modal" id="quizModal">
+        <div class="quiz-content">
+            <button class="quiz-close" onclick="closeQuiz()">&times;</button>
+            <h2 class="quiz-title" id="quizTitle"></h2>
+            <div class="quiz-options" id="quizOptions"></div>
+        </div>
+    </div>
+
+    <script>
+        // Updated word pairs based on user request
+        const wordPairs = {
+            'doğru': 'yanlış',
+            'yanlış': 'doğru',
+            'acı': 'tatlı',
+            'tatlı': 'acı',
+            'açık': 'kapalı',
+            'kapalı': 'açık',
+            'ince': 'kalın',
+            'kalın': 'ince',
+            'ıslak': 'kuru', 
+            'kuru': 'ıslak',
+            'cömert': 'cimri',
+            'cimri': 'cömert',
+            'ıssız': 'kalabalık',
+            'kalabalık': 'ıssız',
+            'dost': 'düşman',
+            'düşman': 'dost',
+            'alçak': 'yüksek',
+            'yüksek': 'alçak',
+            'az': 'çok',
+            'çok': 'az'
+        };
+
+        // Updated words for the wheel - exactly 10 words
+        let words = ['doğru', 'acı', 'açık', 'ince', 'ıslak', 'cömert', 'ıssız', 'dost', 'alçak', 'az'];
+
+        let currentRotation = 0;
+        let isSpinning = false;
+        let audioContext;
+        let idleAnimationId;
+        let shouldAnimate = true; // Global animation control
+
+        // Initialize audio context
+        document.addEventListener('click', function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            document.removeEventListener('click', initAudio);
+        }, { once: true });
+
+        // Real tick sound from file
+        function playTickSound() {
+            try {
+                const tickAudio = new Audio('tick.mp3');
+                tickAudio.volume = 0.6;
+                tickAudio.play().catch(e => console.log('Tick ses çalma hatası:', e));
+            } catch (e) {
+                console.log('Tick ses yükleme hatası:', e);
+            }
+        }
+
+        function playVictorySound() {
+            if (!audioContext) return;
+            
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            
+            notes.forEach((freq, index) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + index * 0.15);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + index * 0.15);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + index * 0.15 + 0.3);
+                
+                oscillator.start(audioContext.currentTime + index * 0.15);
+                oscillator.stop(audioContext.currentTime + index * 0.15 + 0.3);
+            });
+        }
+
+        function playApplauseSound() {
+            if (!audioContext) return;
+            
+            const bufferSize = audioContext.sampleRate * 1.5;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5) * 0.8;
+            }
+            
+            const source = audioContext.createBufferSource();
+            const gainNode = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+            
+            source.buffer = buffer;
+            source.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(300, audioContext.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            
+            source.start(audioContext.currentTime);
+        }
+
+        // Idle animation control
+        function startIdleAnimation() {
+            if (!shouldAnimate) return; // Don't start if globally disabled
+            
+            const canvas = document.querySelector('.wheel');
+            const startTime = Date.now();
+            const duration = 20000; // 20 seconds for full rotation
+            
+            function animate() {
+                // Double check: stop if spinning OR if globally disabled
+                if (isSpinning || !shouldAnimate) {
+                    idleAnimationId = null;
+                    return;
+                }
+                
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % duration) / duration;
+                const degrees = progress * 360;
+                
+                canvas.style.transform = `rotate(${currentRotation + degrees}deg)`;
+                
+                idleAnimationId = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+        
+        function stopIdleAnimation() {
+            shouldAnimate = false; // Global disable
+            if (idleAnimationId) {
+                cancelAnimationFrame(idleAnimationId);
+                idleAnimationId = null;
+            }
+        }
+        
+        function enableIdleAnimation() {
+            shouldAnimate = true;
+        }
+
+        // Çarkın mevcut DOM pozisyonunu currentRotation değişkenine aktar
+        function updateCurrentRotationFromDOM() {
+            const canvas = document.querySelector('.wheel');
+            if (canvas) {
+                const computedStyle = window.getComputedStyle(canvas);
+                const transform = computedStyle.transform;
+                
+                if (transform && transform !== 'none') {
+                    // Transform matrix'ten rotation değerini çıkar
+                    const matrix = new DOMMatrix(transform);
+                    const radians = Math.atan2(matrix.b, matrix.a);
+                    const degrees = radians * (180 / Math.PI);
+                    
+                    // currentRotation'ı güncelle
+                    currentRotation = degrees;
+                    console.log('DOM\'dan okunan rotation:', degrees);
+                }
+            }
+        }
+
+        // Smooth idle animation - geri atma olmadan başlat
+        function startSmoothIdleAnimation() {
+            if (!shouldAnimate) return;
+            
+            const canvas = document.querySelector('.wheel');
+            const startTime = Date.now();
+            const duration = 20000; // 20 saniye tam dönüş
+            
+            // Çarkın şu anki pozisyonunu al
+            updateCurrentRotationFromDOM();
+            const baseRotation = currentRotation;
+            
+            function animate() {
+                if (isSpinning || !shouldAnimate) {
+                    idleAnimationId = null;
+                    return;
+                }
+                
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % duration) / duration;
+                const additionalDegrees = progress * 360;
+                
+                // Mevcut pozisyondan devam et, geri atlama yapma
+                canvas.style.transform = `rotate(${baseRotation + additionalDegrees}deg)`;
+                
+                idleAnimationId = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+
+        // Get responsive wheel size
+        function getWheelSize() {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            
+            // Height constraints (more important for responsiveness)
+            if (screenHeight <= 600) {
+                return 350;
+            } else if (screenHeight >= 601 && screenHeight <= 800) {
+                return 550; // For 1024x768 and similar
+            }
+            // Width constraints
+            else if (screenWidth <= 480) {
+                return 320;
+            } else if (screenWidth <= 768) {
+                return 400;
+            } else {
+                return 750;
+            }
+        }
+
+        // Get responsive needle position
+        function getResponsiveNeedlePosition() {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            
+            // Mobile devices (<=480px width)
+            if (screenWidth <= 480) {
+                return '-42px';
+            }
+            // Tablet devices (<=768px width)
+            else if (screenWidth <= 768) {
+                return '-45px';
+            }
+            // Height-based responsive (600px or less height)
+            else if (screenHeight <= 600) {
+                return '-42px';
+            }
+            // Height 601-800px range
+            else if (screenHeight >= 601 && screenHeight <= 800) {
+                return '-53px';
+            }
+            // Desktop default
+            else {
+                return '-60px';
+            }
+        }
+
+        // Get responsive font size
+        function getFontSize() {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            
+            // Height constraints (more important for responsiveness)
+            if (screenHeight <= 600) {
+                return 16;
+            } else if (screenHeight >= 601 && screenHeight <= 800) {
+                return 20; // For 1024x768 and similar
+            }
+            // Width constraints
+            else if (screenWidth <= 480) {
+                return 14;
+            } else if (screenWidth <= 768) {
+                return 18;
+            } else {
+                return 24;
+            }
+        }
+
+        // High-DPI Canvas Setup for sharp rendering
+        function setupHighDPICanvas(canvas, ctx, size) {
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            
+            // Set the display size (CSS pixels)
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+            
+            // Set the actual canvas size in memory (scaled up)
+            canvas.width = size * devicePixelRatio;
+            canvas.height = size * devicePixelRatio;
+            
+            // Scale the drawing context so everything draws at the correct size
+            ctx.scale(devicePixelRatio, devicePixelRatio);
+            
+            return devicePixelRatio;
+        }
+
+        // Draw wheel with reference colors and layout
+        function drawWheel() {
+            const canvas = document.querySelector('.wheel');
+            const ctx = canvas.getContext('2d');
+
+            // Responsive canvas boyut ayarı
+            const wheelSize = getWheelSize();
+            
+            // Setup high-DPI canvas for sharp rendering
+            const pixelRatio = setupHighDPICanvas(canvas, ctx, wheelSize);
+            
+            // Enable anti-aliasing for smoother rendering
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.textRenderingOptimization = 'optimizeQuality';
+            
+            ctx.clearRect(0, 0, wheelSize, wheelSize);
+
+            // Reference image colors
+            const colors = [
+                '#4ECDC4', // turkuaz
+                '#FFEAA7', // sarı
+                '#DDA0DD', // pembe
+                '#4ECDC4', // turkuaz
+                '#FF6B6B', // pembe/kırmızı
+                '#F39C12', // turuncu
+                '#2ECC71', // yeşil
+                '#E74C3C', // kırmızı
+                '#4ECDC4', // turkuaz
+                '#3498DB', // mavi
+                '#F1C40F', // sarı
+                '#FFEAA7', // sarı
+                '#E74C3C', // kırmızı
+                '#4ECDC4'  // turkuaz
+            ];
+
+            const centerX = wheelSize / 2;
+            const centerY = wheelSize / 2;
+            const radius = Math.min(centerX, centerY) - 10;
+            const anglePerSection = (2 * Math.PI) / words.length;
+
+            // Draw segments
+            words.forEach((word, index) => {
+                const startAngle = index * anglePerSection;
+                const endAngle = startAngle + anglePerSection;
+                
+                // Draw segment
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[index];
+                ctx.fill();
+                
+                // White borders (scaled for high-DPI)
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw text (keep the beautiful orientation)
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + anglePerSection / 2);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#333333';
+                ctx.font = `bold ${getFontSize()}px "Open Sans", sans-serif`;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.strokeText(word, radius * 0.65, 0);
+                ctx.fillText(word, radius * 0.65, 0);
+                ctx.restore();
+            });
+        }
+
+        // Spin function - FULL JAVASCRIPT CONTROL
+        function spinWheel() {
+            if (isSpinning) return;
+            
+            isSpinning = true;
+            const spinButton = document.querySelector('.spin-button');
+            const canvas = document.querySelector('.wheel');
+            const needle = document.querySelector('.needle');
+            
+            spinButton.style.pointerEvents = 'none';
+            // NO opacity change - keep button visible
+            
+            // Start needle directional tilt animation based on spin direction
+            // Since we're spinning clockwise (positive rotation), needle tilts right due to "wind resistance"
+            needle.classList.remove('tilting-left', 'bouncing-left', 'bouncing-right');
+            needle.classList.add('tilting-right');
+            
+            // Stop idle animation completely
+            stopIdleAnimation();
+            
+            // Save initial state before calculating spin
+            const initialRotation = currentRotation;
+            
+            // Calculate new rotation
+            const spinAmount = (Math.random() * 360) + 1800; // At least 5 full turns
+            const targetRotation = currentRotation + spinAmount;
+
+            // Segment-synchronized tick sounds
+            let lastTickedSegment = -1;
+            const startTime = Date.now();
+            const spinDuration = 3000; // 3 seconds matching CSS transition
+            
+            function trackSegmentAndTick() {
+                if (!isSpinning) return;
+                
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / spinDuration, 1);
+                
+                // Calculate current rotation with easing (cubic-bezier approximation)
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                const currentSpinRotation = initialRotation + (spinAmount * easeOut);
+                
+                // Calculate which segment needle points to
+                const anglePerSection = 360 / words.length;
+                const needlePointsToOriginalAngle = (270 - currentSpinRotation + 360) % 360;
+                const currentSegment = Math.floor(needlePointsToOriginalAngle / anglePerSection) % words.length;
+                
+                // Play tick sound and trigger needle bounce when crossing to new segment
+                if (currentSegment !== lastTickedSegment) {
+                    playTickSound();
+                    
+                    // Trigger needle bounce animation synchronized with segment crossing
+                    const needle = document.querySelector('.needle');
+                    
+                    // Remove any existing bounce animation
+                    needle.classList.remove('bouncing-right', 'bouncing-left');
+                    
+                    // Add bounce animation (always to the right since we spin clockwise)
+                    // Force reflow to ensure class removal takes effect
+                    needle.offsetHeight;
+                    needle.classList.add('bouncing-right');
+                    
+                    // Remove bounce class after animation completes
+                    setTimeout(() => {
+                        needle.classList.remove('bouncing-right');
+                    }, 200);
+                    
+                    lastTickedSegment = currentSegment;
+                }
+                
+                // Continue tracking until spin ends
+                if (progress < 1) {
+                    requestAnimationFrame(trackSegmentAndTick);
+                }
+            }
+            
+            // Start segment tracking
+            requestAnimationFrame(trackSegmentAndTick);
+
+            // PURE CSS TRANSITION - NO CONFLICTS
+            canvas.style.transition = 'transform 3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            canvas.style.transform = `rotate(${targetRotation}deg)`;
+            
+            // Update current rotation immediately for future calculations
+            currentRotation = targetRotation;
+
+            // Handle completion with transitionend
+            const handleTransitionEnd = (e) => {
+                if (e.target === canvas && e.propertyName === 'transform') {
+                    canvas.removeEventListener('transitionend', handleTransitionEnd);
+                    
+                    isSpinning = false;
+                    spinButton.style.pointerEvents = 'auto';
+                    // NO opacity reset needed
+                    
+                    // Stop needle animations and return to neutral position
+                    const needle = document.querySelector('.needle');
+                    needle.classList.remove('tilting-right', 'tilting-left', 'bouncing-right', 'bouncing-left');
+                    
+                    // Smoothly return needle to responsive neutral position
+                    needle.style.transition = 'transform 0.5s ease-out';
+                    const responsiveY = getResponsiveNeedlePosition();
+                    needle.style.transform = `translate(-50%, -50%) translateY(${responsiveY}) rotate(0deg)`;
+                    
+                    // Clear inline styles after transition
+                    setTimeout(() => {
+                        needle.style.transition = '';
+                        needle.style.transform = '';
+                    }, 500);
+                    
+                    // Clear transition for smooth restart
+                    canvas.style.transition = 'none';
+                    
+                    // Normalize rotation for idle animation base
+                    currentRotation = currentRotation % 360;
+                    canvas.style.transform = `rotate(${currentRotation}deg)`;
+                    
+                    // DON'T restart idle animation! Wheel should stop until quiz closes
+
+                    // Determine winner - FIXED ALGORITHM
+                    const anglePerSection = 360 / words.length;
+                    // Needle points at 270° (12 o'clock), find which segment it points to
+                    // When wheel rotates by currentRotation, segment originally at angle A is now at A + currentRotation
+                    // Needle points to segment that's currently at 270°, so originally at 270° - currentRotation
+                    const needlePointsToOriginalAngle = (270 - currentRotation + 360) % 360;
+                    const winnerIndex = Math.floor(needlePointsToOriginalAngle / anglePerSection) % words.length;
+                    const winner = words[winnerIndex];
+
+                    // Show winner announcement
+                    showWinnerAnnouncement(winner);
+
+                    // Effects - NO CONFETTI HERE!
+                    playVictorySound();
+                    setTimeout(() => playApplauseSound(), 200);
+                    // Konfeti sadece doğru cevaplarda gelecek!
+
+                    // Auto show quiz
+                    setTimeout(() => {
+                        hideWinnerAnnouncement();
+                        showQuiz(winner);
+                    }, 1500);
+                }
+            };
+
+            canvas.addEventListener('transitionend', handleTransitionEnd);
+        }
+
+        // Türkçe karakterler için özel büyük harf fonksiyonu
+        function toTurkishUpperCase(text) {
+            const turkishMap = {
+                'ı': 'I',
+                'i': 'İ',
+                'ş': 'Ş',
+                'ğ': 'Ğ',
+                'ü': 'Ü',
+                'ö': 'Ö',
+                'ç': 'Ç'
+            };
+            
+            return text.split('').map(char => {
+                return turkishMap[char] || char.toUpperCase();
+            }).join('');
+        }
+
+        // Winner announcement
+        function showWinnerAnnouncement(winner) {
+            // ÇARK DUR! Kelime gelince tamamen durmalı
+            stopIdleAnimation();
+            
+            const winnerText = document.getElementById('winnerText');
+            winnerText.textContent = `🎉 ${toTurkishUpperCase(winner)} 🎉`;
+            winnerText.classList.add('show');
+        }
+
+        function hideWinnerAnnouncement() {
+            const winnerText = document.getElementById('winnerText');
+            winnerText.classList.remove('show');
+        }
+
+        // Enhanced confetti for full screen (oyun bitişi)
+        function createEnhancedConfetti() {
+            console.log('Konfeti başlatılıyor...');
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.top = '-20px';
+                    confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 80%, 60%)`;
+                    confetti.style.position = 'fixed';
+                    confetti.style.width = '12px';
+                    confetti.style.height = '12px';
+                    confetti.style.borderRadius = '50%';
+                    confetti.style.zIndex = '3500';
+                    confetti.style.pointerEvents = 'none';
+                    
+                    document.body.appendChild(confetti);
+                    
+                    // CSS animasyon kullan
+                    confetti.animate([
+                        { 
+                            transform: 'translateY(-20px) rotate(0deg)', 
+                            opacity: 1 
+                        },
+                        { 
+                            transform: `translateY(100vh) rotate(${Math.random() * 720}deg)`, 
+                            opacity: 0.3 
+                        }
+                    ], {
+                        duration: 3000,
+                        easing: 'ease-out'
+                    }).onfinish = () => {
+                        if (confetti.parentNode) {
+                            confetti.remove();
+                        }
+                    };
+                }, i * 15);
+            }
+        }
+
+        // Quiz confetti - modal içinde
+        function createQuizConfetti() {
+            const modal = document.getElementById('quizModal');
+            const quizContent = modal.querySelector('.quiz-content');
+            
+            // Quiz content'i confetti için hazırla
+            quizContent.style.overflow = 'hidden';
+            quizContent.style.position = 'relative';
+            
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.position = 'absolute';
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-10px';
+                    confetti.style.width = '10px';
+                    confetti.style.height = '10px';
+                    confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 80%, 60%)`;
+                    confetti.style.borderRadius = '50%';
+                    confetti.style.pointerEvents = 'none';
+                    confetti.style.zIndex = '3000';
+                    
+                    quizContent.appendChild(confetti);
+                    
+                    confetti.animate([
+                        { 
+                            transform: 'translateY(0px) rotate(0deg) scale(1)', 
+                            opacity: 1 
+                        },
+                        { 
+                            transform: `translateY(500px) rotate(${360 + Math.random() * 360}deg) scale(0.3)`, 
+                            opacity: 0 
+                        }
+                    ], {
+                        duration: 2000 + Math.random() * 1000,
+                        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                    }).onfinish = () => {
+                        confetti.remove();
+                    };
+                }, i * 30);
+            }
+        }
+
+        // Quiz with 2 options
+        function showQuiz(selectedWord) {
+            // ÇARK DUR! Quiz sırasında hiç dönmesin
+            stopIdleAnimation();
+            
+            const correctAnswer = wordPairs[selectedWord];
+            
+            if (!correctAnswer) {
+                console.log(`"${selectedWord}" kelimesinin zıt anlamlısı bulunamadı!`);
+                return;
+            }
+
+            // Generate one wrong answer
+            const allWords = Object.keys(wordPairs);
+            const wrongAnswers = allWords
+                .filter(word => word !== correctAnswer && word !== selectedWord)
+                .sort(() => 0.5 - Math.random());
+
+            const wrongAnswer = wrongAnswers[0] || 'farklı';
+
+            // 2 options: correct + wrong
+            const options = [correctAnswer, wrongAnswer]
+                .sort(() => 0.5 - Math.random());
+
+            // Show modal
+            const modal = document.getElementById('quizModal');
+            const modalContent = modal.querySelector('.quiz-content');
+            const title = document.getElementById('quizTitle');
+            const optionsContainer = document.getElementById('quizOptions');
+            const closeButton = modal.querySelector('.quiz-close');
+            
+            // Reset modal appearance for regular quiz
+            closeButton.style.display = 'block';
+            modalContent.style.background = '';
+            modalContent.style.border = '';
+            title.style.color = '';
+            title.style.textShadow = '';
+
+            title.textContent = `"${selectedWord}" kelimesinin zıt anlamlısı hangisidir?`;
+            
+            optionsContainer.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'quiz-option';
+                button.textContent = option;
+                // Güvenli handler ekleme
+                button.onclick = null;
+                button.onclick = () => selectAnswer(button, option, correctAnswer, selectedWord);
+                optionsContainer.appendChild(button);
+            });
+
+            // FORCE OPEN - Modal kesinlikle açılsın
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            modal.style.zIndex = '2000';
+            setTimeout(() => modal.classList.add('show'), 100);
+        }
+
+        // Answer selection with auto-close
+        function selectAnswer(button, selected, correct, questionWord) {
+            const options = document.querySelectorAll('.quiz-option');
+            options.forEach(opt => opt.onclick = null);
+
+            if (selected === correct) {
+                button.classList.add('correct');
+                
+                // 🎉 DOĞRU CEVAP! TÜM EKRANDA KONFETİ VE SES BİRLİKTE!
+                createEnhancedConfetti();
+                
+                // Applause sesini konfeti ile aynı anda çal
+                try {
+                    const applauseSound = new Audio('applause.mp3');
+                    applauseSound.volume = 0.5;
+                    applauseSound.play().catch(e => console.log('Audio play failed:', e));
+                } catch (e) {
+                    console.log('Applause sound file not found');
+                }
+                
+                // ✅ KELİMEYİ ÇARKTAN ÇIKAR!
+                const wordIndex = words.indexOf(questionWord);
+                if (wordIndex !== -1) {
+                    words.splice(wordIndex, 1);
+                    
+                    // Çarkı yeniden çiz
+                    setTimeout(() => {
+                        drawWheel();
+                    }, 100);
+                }
+            } else {
+                button.classList.add('wrong');
+                // Show correct answer
+                options.forEach(opt => {
+                    if (opt.textContent === correct) {
+                        opt.classList.add('correct');
+                    }
+                });
+                // Wrong sound
+                setTimeout(() => {
+                    if (audioContext) {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.3);
+                    }
+                }, 100);
+            }
+
+            // AUTO CLOSE - Doğru cevaplarda konfeti bitene kadar bekle!
+            const waitTime = (selected === correct) ? 3000 : 1500; // Doğru cevaplarda 3 saniye, yanlışta 1.5 saniye
+            
+            setTimeout(() => {
+                closeQuiz();
+                
+                // OYUN BİTİŞİ KONTROLÜ
+                if (words.length === 0) {
+                    setTimeout(() => {
+                        showGameCompleted();
+                    }, 800);
+                } else {
+                    // Çarkın pozisyonunu güncelle ve smooth idle animation başlat
+                    setTimeout(() => {
+                        updateCurrentRotationFromDOM();
+                        enableIdleAnimation();
+                        startSmoothIdleAnimation();
+                    }, 500);
+                }
+            }, waitTime);
+        }
+
+        // Show game completed message
+        function showGameCompleted() {
+            // Çarkı tamamen durdur
+            stopIdleAnimation();
+            
+            const modal = document.getElementById('quizModal');
+            const modalContent = modal.querySelector('.quiz-content');
+            const title = document.getElementById('quizTitle');
+            const optionsContainer = document.getElementById('quizOptions');
+            const closeButton = modal.querySelector('.quiz-close');
+            
+            // X butonunu gizle
+            closeButton.style.display = 'none';
+            
+            // Modal rengini tema ile uyumlu yap
+            modalContent.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            modalContent.style.border = '3px solid #ffffff';
+            
+            // Özel tebrik mesajı
+            title.innerHTML = `🎉 TEBRİKLER! 🎉<br><br>Tüm kelimeleri başarıyla çözdün!<br><br>🏆 OYUN TAMAMLANDI! 🏆`;
+            title.style.fontSize = '24px';
+            title.style.color = '#00ff00';
+            title.style.textAlign = 'center';
+            title.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+            
+            // Restart butonu ekle
+            optionsContainer.innerHTML = `
+                <button class="quiz-option" onclick="restartGame()" style="background: linear-gradient(45deg, #ffffff, #f0f0f0); color: #333; font-size: 18px; font-weight: bold; border: 3px solid #667eea; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    🔄 YENİDEN OYNA
+                </button>
+            `;
+            
+            // Modal'ı göster
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            modal.style.zIndex = '2000';
+            setTimeout(() => modal.classList.add('show'), 100);
+            
+            // Confetti effect ve zafer sesi
+            createEnhancedConfetti();
+            setTimeout(() => createEnhancedConfetti(), 1000);
+            setTimeout(() => createEnhancedConfetti(), 2000);
+            
+            // Zafer sesi çal
+            try {
+                const conquestSound = new Audio('conq.mp3');
+                conquestSound.volume = 0.6;
+                conquestSound.play().catch(e => console.log('Conquest sound play failed:', e));
+            } catch (e) {
+                console.log('Conquest sound file not found');
+            }
+        }
+
+        
+        // Restart game
+        function restartGame() {
+            // Kelimeleri sıfırla
+            words = ['doğru', 'acı', 'açık', 'ince', 'ıslak', 'cömert', 'ıssız', 'dost', 'alçak', 'az'];
+            currentRotation = 0;
+            
+            // Quiz'i kapat
+            closeQuiz();
+            
+            // Çarkı yeniden çiz ve başlat
+            setTimeout(() => {
+                drawWheel();
+                enableIdleAnimation();
+                startIdleAnimation();
+            }, 500);
+        }
+
+        // Close quiz - AGGRESSIVE MODAL CLOSE
+        function closeQuiz() {
+            const modal = document.getElementById('quizModal');
+            if (modal) {
+                // FORCE CLOSE - Her türlü kapansın
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+                modal.style.visibility = 'hidden';
+                modal.style.opacity = '0';
+                modal.style.zIndex = '-1';
+                
+                // Quiz kapandığında çarkı yeniden döndürmeye başla
+                setTimeout(() => {
+                    // Stop needle wobble animation if still active
+                    const needle = document.querySelector('.needle');
+                    needle.classList.remove('wobbling');
+                    
+                    // Set responsive needle position
+                    const responsiveY = getResponsiveNeedlePosition();
+                    needle.style.transform = `translate(-50%, -50%) translateY(${responsiveY}) rotate(0deg)`;
+                    
+                    // Çarkın mevcut pozisyonunu güncelle ve smooth idle animation başlat
+                    updateCurrentRotationFromDOM();
+                    enableIdleAnimation();
+                    startSmoothIdleAnimation();
+                }, 200);
+            }
+        }
+
+        // Close quiz and spin again
+        function closeQuizAndSpin() {
+            closeQuiz();
+            setTimeout(() => {
+                spinWheel();
+            }, 300);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            drawWheel();
+            
+            // Set responsive needle position on page load
+            const needle = document.querySelector('.needle');
+            if (needle) {
+                const responsiveY = getResponsiveNeedlePosition();
+                needle.style.transform = `translate(-50%, -50%) translateY(${responsiveY}) rotate(0deg)`;
+            }
+            
+            // Start idle animation on page load
+            enableIdleAnimation();
+            setTimeout(() => startIdleAnimation(), 500);
+        });
+
+        // Window resize handler
+        window.addEventListener('resize', function() {
+            drawWheel();
+            
+            // Update needle position on resize
+            const needle = document.querySelector('.needle');
+            if (needle) {
+                const responsiveY = getResponsiveNeedlePosition();
+                needle.style.transform = `translate(-50%, -50%) translateY(${responsiveY}) rotate(0deg)`;
+            }
+        });
+    </script>
+</body>
+</html>
